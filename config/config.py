@@ -6,6 +6,7 @@ def get_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg', type=str, default='./config/thumos_i3d_PRSA.yaml', nargs='?')
     parser.add_argument('--mode', type=str, default='train')
+    parser.add_argument('--sbj', type=int, default=0)
     args = parser.parse_args()
 
     with open(args.cfg, 'r', encoding='utf-8') as f:

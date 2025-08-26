@@ -21,12 +21,22 @@ def main(args):
         print("epoch end time:%s" % time2)
 
         eval_proposal(args)
-        eval_detection(args)
+        #eval_detection(args)
 
 
 
 if __name__ == '__main__':
     args = get_config()
+
+    if 'raw' in args.dataset['sens_folder']:
+        args.output['output_path'] = args.output['output_path']+args.dataset['dataset_name']+'/raw/sbj_'+str(args.sbj)+'/'
+        args.output["checkpoint_path"] = args.output["checkpoint_path"]+args.dataset['dataset_name']+'/raw/sbj_'+str(args.sbj)+'/'
+    elif 'lstm' in args.dataset['sens_folder']:
+        args.output['output_path'] = args.output['output_path']+args.dataset['dataset_name']+'/lstm/sbj_'+str(args.sbj)+'/'
+        args.output["checkpoint_path"] = args.output["checkpoint_path"]+args.dataset['dataset_name']+'/lstm/sbj_'+str(args.sbj)+'/'
+    elif 'attention' in args.dataset['sens_folder']:
+        args.output['output_path'] = args.output['output_path']+args.dataset['dataset_name']+'/attention/sbj_'+str(args.sbj)+'/'
+        args.output["checkpoint_path"] = args.output["checkpoint_path"]+args.dataset['dataset_name']+'/attention/sbj_'+str(args.sbj)+'/'
 
     if not os.path.exists(args.output["checkpoint_path"]):
         os.makedirs(args.output['checkpoint_path'])

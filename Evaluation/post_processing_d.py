@@ -99,7 +99,7 @@ def _gen_proposal_video(args, video_name, video_cls, thu_label_id, result, topk=
     for j in range(min(args.eval['num_props'], len(df))):
         for k in range(topk):
             tmp_proposal = {}
-            tmp_proposal['label'] = thumos_class[int(unet_classes[k])]
+            tmp_proposal['label'] = thumos_class[int(unet_classes[k])] #! Probably need to run uNet w my data
             tmp_proposal["score"] = float(df.score.values[j] * unet_scores[k])
             tmp_proposal["segment"] = [float(round(max(0, df.xmin.values[j]) / fps, 4)),
                                        float(round(min(num_frames, df.xmax.values[j]) / fps, 4))]
@@ -111,27 +111,80 @@ def _gen_proposal_video(args, video_name, video_cls, thu_label_id, result, topk=
 
 def gen_proposal_muticore(args):
 
-    thumos_test_anno = pd.read_csv(args.eval['thumo_test_anno'])
-    video_list = thumos_test_anno.video.unique()
-    thu_label_id = np.sort(thumos_test_anno.type_idx.unique())[1:] - 1
-    thu_video_id = np.array([int(i[-4:]) - 1 for i in video_list])
-    cls_data = np.load("./data/uNet_test.npy")
-    cls_data = cls_data[thu_video_id, :][:, thu_label_id]
-    thumos_gt = pd.read_csv(args.eval['thumos_test_gt'])
-    result = {
-        video:
-            {
-                'fps': thumos_gt.loc[thumos_gt['video-name'] == video]['frame-rate'].values[0],
-                'num_frames': thumos_gt.loc[thumos_gt['video-name'] == video]['video-frames'].values[0]
-            }
-        for video in video_list
-    }
-    parallel = Parallel(n_jobs=16)
-    generation = parallel(delayed(_gen_proposal_video)(args, video_name, video_cls, thu_label_id, result)
-                          for video_name, video_cls in zip(video_list, cls_data))
-    generation_dict = {}
-    [generation_dict.update(d) for d in generation]
-    output_dict = {"version": "THUMOS14", "results": generation_dict, "external_data": {}}
-    with open(os.path.join(args.output["output_path"], 'generated_result.json'), "w") as out:
-        json.dump(output_dict, out)
-    print("end")
+    if args.dataset['dataset_name'] == 'hangtime' or args.dataset['dataset_name'] == 'sbhar': #! This implementation works only for hangtime data. Modification needed here.
+        sbj_name = f'sbj_{args.sbj}'
+        json_anno = [x for x in args.anno_json if sbj_name in x][0]
+        with open(json_anno, 'r') as fid:
+            json_data = json.load(fid)
+        json_db = json_data['database']
+
+        sbj_val = pd.json_normalize(json_db[sbj_name]['annotations'])
+        sbj_val['name'] = sbj_name
+        sbj_val['video-duration'] = json_db[sbj_name]['duration']
+        sbj_val['frame-rate'] = json_db[sbj_name]['fps']
+
+        sbj_val = sbj_val.reset_index(drop=True)
+        sbj_val = sbj_val.drop(['all-segments','agreement','context-distance','context-size', 'length', 'coverage', 'num-instances', 'label'], axis=1)
+        sbj_val['t-init'] = sbj_val.segment.map(lambda x: x[0])
+        sbj_val['t-end'] = sbj_val.segment.map(lambda x: x[1])
+        sbj_val['f-init'] = sbj_val['segment (frames)'].map(lambda x: x[0])
+        sbj_val['f-end'] = sbj_val['segment (frames)'].map(lambda x: x[1])
+        sbj_val = sbj_val.drop(['segment', 'segment (frames)'], axis=1)
+        sbj_val = sbj_val.rename(columns={'label_id':'label_idx'})
+
+        sbj_val = sbj_val.iloc[:, [1,4,5,6,7,2,3,0]]
+
+        sbj_num_frames = len(pd.read_csv(args.dataset['sens_folder']+sbj_name_list+'.csv'))
+
+        video_list = sbj_val.name.unique()
+
+        #thumos_test_anno = pd.read_csv(args.eval['thumo_test_anno'])
+        #video_list = thumos_test_anno.video.unique()
+        ine_label_id = np.sort(sbj_val.type_idx.unique())[1:] - 1
+        ine_video_id = np.array([int(i[-4:]) - 1 for i in video_list])
+        cls_data = np.load("./data/uNet_test.npy")
+        cls_data = cls_data[ine_video_id, :][:, ine_label_id]
+        thumos_gt = pd.read_csv(args.eval['thumos_test_gt'])
+        result = {
+            video:
+                {
+                    'fps': thumos_gt.loc[thumos_gt['video-name'] == video]['frame-rate'].values[0],
+                    'num_frames': thumos_gt.loc[thumos_gt['video-name'] == video]['video-frames'].values[0]
+                }
+            for video in video_list
+        }
+        parallel = Parallel(n_jobs=16)
+        generation = parallel(delayed(_gen_proposal_video)(args, video_name, video_cls, ine_label_id, result)
+                            for video_name, video_cls in zip(video_list, cls_data))
+        generation_dict = {}
+        [generation_dict.update(d) for d in generation]
+        output_dict = {"version": "THUMOS14", "results": generation_dict, "external_data": {}}
+        with open(os.path.join(args.output["output_path"], 'generated_result_detection.json'), "w") as out:
+            json.dump(output_dict, out)
+        print("end")
+
+    else:
+        thumos_test_anno = pd.read_csv(args.eval['thumo_test_anno'])
+        video_list = thumos_test_anno.video.unique()
+        thu_label_id = np.sort(thumos_test_anno.type_idx.unique())[1:] - 1
+        thu_video_id = np.array([int(i[-4:]) - 1 for i in video_list])
+        cls_data = np.load("./data/uNet_test.npy")
+        cls_data = cls_data[thu_video_id, :][:, thu_label_id]
+        thumos_gt = pd.read_csv(args.eval['thumos_test_gt'])
+        result = {
+            video:
+                {
+                    'fps': thumos_gt.loc[thumos_gt['video-name'] == video]['frame-rate'].values[0],
+                    'num_frames': thumos_gt.loc[thumos_gt['video-name'] == video]['video-frames'].values[0]
+                }
+            for video in video_list
+        }
+        parallel = Parallel(n_jobs=16)
+        generation = parallel(delayed(_gen_proposal_video)(args, video_name, video_cls, thu_label_id, result)
+                            for video_name, video_cls in zip(video_list, cls_data))
+        generation_dict = {}
+        [generation_dict.update(d) for d in generation]
+        output_dict = {"version": "THUMOS14", "results": generation_dict, "external_data": {}}
+        with open(os.path.join(args.output["output_path"], 'generated_result.json'), "w") as out:
+            json.dump(output_dict, out)
+        print("end")

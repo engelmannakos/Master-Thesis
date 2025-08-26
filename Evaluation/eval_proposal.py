@@ -17,7 +17,7 @@ def interpolated_prec_rec(prec, rec):
     return ap
 
 
-def segment_iou(target_segment, candidate_segments):
+def segment_iou(target_segment, candidate_segments): #! e.g. [3076.3, 3077.3], gt (241, 2)
     """Compute the temporal intersection over union between a
     target segment and all the test segments.
 
@@ -46,7 +46,7 @@ def segment_iou(target_segment, candidate_segments):
     return tIoU
 
 
-def wrapper_segment_iou(target_segments, candidate_segments):
+def wrapper_segment_iou(target_segments, candidate_segments): #! proposal, gt
     """Compute intersection over union btw segments
     Parameters
     ----------
@@ -63,7 +63,7 @@ def wrapper_segment_iou(target_segments, candidate_segments):
     if candidate_segments.ndim != 2 or target_segments.ndim != 2:
         raise ValueError('Dimension of arguments is incorrect')
 
-    n, m = candidate_segments.shape[0], target_segments.shape[0]
+    n, m = candidate_segments.shape[0], target_segments.shape[0] #! e.g. 241, 1000
     tiou = np.empty((n, m))
     for i in range(m):
         tiou[:, i] = segment_iou(target_segments[i, :], candidate_segments)
@@ -104,6 +104,8 @@ class ANETproposal(object):
         self.check_status = check_status
         self.dataset_name = dataset_name
         # Retrieve blocked videos from server.
+        #print('Checkpoint 7.1.1')
+
         if self.check_status:
             pass
             self.blocked_videos = get_blocked_videos()
@@ -113,7 +115,7 @@ class ANETproposal(object):
         self.ground_truth, self.activity_index = self._import_ground_truth(
             ground_truth_filename)
         self.proposal = self._import_proposal(proposal_filename)
-
+        #print('Checkpoint 7.1.2')
         if self.verbose:
             print('[INIT] Loaded annotations from {} subset.'.format(subset))
             nr_gt = len(self.ground_truth)
@@ -250,7 +252,7 @@ def average_recall_vs_avg_nr_proposals(ground_truth, proposals,
     """
 
     # Get list of videos.
-    video_lst = ground_truth['video-id'].unique()
+    video_lst = ground_truth['video-id'].unique() #! e.g. ['sbj_0']
     if not max_avg_nr_proposals:
         max_avg_nr_proposals = float(proposals.shape[0]) / video_lst.shape[0]
     ratio = max_avg_nr_proposals * float(video_lst.shape[0]) / proposals.shape[0]
@@ -318,7 +320,7 @@ def average_recall_vs_avg_nr_proposals(ground_truth, proposals,
 
             true_positives_tiou = score >= tiou
             # Get number of proposals as a percentage of total retrieved.
-            pcn_proposals = np.minimum((score.shape[1] * pcn_lst).astype(np.int), score.shape[1])
+            pcn_proposals = np.minimum((score.shape[1] * pcn_lst).astype(int), score.shape[1])
 
             for j, nr_proposals in enumerate(pcn_proposals):
                 # Compute the number of matches for each percentage of the proposals
@@ -326,7 +328,6 @@ def average_recall_vs_avg_nr_proposals(ground_truth, proposals,
 
         # Computes recall given the set of matches per video.
         recall[ridx, :] = matches.sum(axis=0) / positives.sum()
-
     # Recall is averaged.
     avg_recall = recall.mean(axis=0)
 

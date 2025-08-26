@@ -3,7 +3,7 @@
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
 
-#include <THC/THC.h>
+#include <torch/extension.h>
 #include <THC/THCAtomics.cuh>
 #include <THC/THCDeviceUtils.cuh>
 
@@ -198,6 +198,11 @@ __global__ void Align1DBackwardFeature(const int nthreads, const T* top_diff,
   } // CUDA_1D_KERNEL_LOOP
 } // RoIAlignBackward
 
+//THCCeilDiv is not supported anymore in new PyTorch
+int  ceil_div(int a, int b){ 
+    return  (a + b - 1) / b; 
+}
+// --------------
 
 at::Tensor Align_forward_cuda(const at::Tensor& input,
                                  const at::Tensor& rois,
@@ -214,17 +219,19 @@ at::Tensor Align_forward_cuda(const at::Tensor& input,
   auto output_size = num_rois * pooled_height * channels;
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  dim3 grid(std::min(THCCeilDiv((long)output_size, 512L), 4096L));
+  //dim3 grid(std::min(THCCeilDiv((long)output_size, 512L), 4096L));
+  dim3 grid(std::min(ceil_div((long)output_size, 512), 4096));
   dim3 block(512);
 
   // printf("Debug main function: height:%d\n", height);
 
   if (output.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    //THCudaCheck(cudaGetLastError());
+    AT_CUDA_CHECK(cudaGetLastError());
     return output;
   }
 
-  AT_DISPATCH_FLOATING_TYPES(input.type(), "Align1D_forward", [&] {
+  AT_DISPATCH_FLOATING_TYPES(input.scalar_type(), "Align1D_forward", [&] {
     Align1DForward<scalar_t><<<grid, block, 0, stream>>>(
          output_size,
          input.contiguous().data<scalar_t>(),
@@ -236,7 +243,8 @@ at::Tensor Align_forward_cuda(const at::Tensor& input,
          rois.contiguous().data<scalar_t>(),
          output.data<scalar_t>());
   });
-  THCudaCheck(cudaGetLastError());
+  //THCudaCheck(cudaGetLastError());
+  AT_CUDA_CHECK(cudaGetLastError());
   return output;
 }
 
@@ -257,16 +265,18 @@ at::Tensor Align_backward_cuda(const at::Tensor& grad,
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  dim3 grid(std::min(THCCeilDiv((long)grad.numel(), 512L), 4096L));
+  //dim3 grid(std::min(THCCeilDiv((long)grad.numel(), 512L), 4096L));
+  dim3 grid(std::min(ceil_div((long)grad.numel(), 512), 4096));
   dim3 block(512);
 
   // handle possibly empty gradients
   if (grad.numel() == 0) {
-    THCudaCheck(cudaGetLastError());
+    //THCudaCheck(cudaGetLastError());
+    AT_CUDA_CHECK(cudaGetLastError());
     return grad_input;
   }
 
-  AT_DISPATCH_FLOATING_TYPES(grad.type(), "ROIAlign_backward", [&] {
+  AT_DISPATCH_FLOATING_TYPES(grad.scalar_type(), "ROIAlign_backward", [&] {
     Align1DBackwardFeature<scalar_t><<<grid, block, 0, stream>>>(
          grad.numel(),
          grad.contiguous().data<scalar_t>(),
@@ -279,6 +289,7 @@ at::Tensor Align_backward_cuda(const at::Tensor& grad,
          grad_input.data<scalar_t>(),
          rois.contiguous().data<scalar_t>());
   });
-  THCudaCheck(cudaGetLastError());
+  //THCudaCheck(cudaGetLastError());
+  AT_CUDA_CHECK(cudaGetLastError());
   return grad_input;
 }

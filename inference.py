@@ -7,7 +7,7 @@ import pandas as pd
 from torch.utils.data import DataLoader
 
 from model.PRSA import PRSA_Net
-from dataset import VideoDataset
+from dataset import VideoDataset, HangtimeDataset
 from Evaluation.eval import evaluation_proposal,evalution_detection
 import Evaluation.post_processing_d as eval_d
 import Evaluation.post_processing_p as eval_p
@@ -27,95 +27,197 @@ def inference(args):
     )
 
     model = torch.nn.DataParallel(model, ).cuda()
+
     checkpoint = torch.load(os.path.join(args.output["checkpoint_path"], args.eval['eval_model']))
     # checkpoint = torch.load(os.path.join(args.output["checkpoint_path"], "PRSA_checkpoint_4.pth.tar"))
     print("load epoch :", checkpoint['epoch'])
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
 
-    test_loader = DataLoader(
-        VideoDataset(
-            temporal_scale=args.dataset['temporal_scale'],
-            mode=args.mode,
-            subset="val",
-            feature_path=args.dataset['feature_path'],
-            video_info_path=args.dataset['video_info_path'],
-            feat_dim=args.model['feat_dim'],
-            gap_videoframes=args.dataset['gap_videoframes'],
-            max_duration=args.dataset['max_duration'],
-            min_duration=args.dataset['max_duration'],
-            feature_name=args.dataset['feature_name'],
-            overwrite=args.dataset['overwrite']
-        ),
-        batch_size=1,
-        shuffle=False,
-        num_workers=args.dataset['num_workers'],
-        pin_memory=True,
-        drop_last=False
-    )
-    tscale = args.dataset['temporal_scale']
-    duration = args.dataset['max_duration']
-    with torch.no_grad():
-        for idx, input_data in test_loader:
-            video_name = test_loader.dataset.video_list[idx[0]]
-            offset = min(test_loader.dataset.data['indices'][idx[0]])
 
-            video_name = video_name + '_{}'.format(math.floor(offset / 250))
+    if args.dataset['dataset_name'] != 'thumos14':
+        anno_split = args.anno_json[args.sbj]
 
-            input_data = input_data.cuda()
-            # 1,2,D,T   1,1,T   1,1,T
-            confidence_map, start, end, loss_G = model(input_data)
+        test_loader = DataLoader(
+            HangtimeDataset(
+                temporal_scale=args.dataset['temporal_scale'],
+                mode=args.mode,
+                subset="val",
+                feat_dim=args.model['feat_dim'],
+                sens_folder=args.dataset['sens_folder'],
+                json_anno=anno_split,
+                gap_videoframes=args.dataset['gap_videoframes'],
+                max_duration=args.dataset['max_duration'],
+                min_duration=args.dataset['max_duration'],
+                feature_name=args.dataset['feature_name'],
+                sbj=args.sbj,
+                overwrite=args.dataset['overwrite']
+            ),
+            batch_size=1, #! args.scheme['batch_size'],
+            shuffle=False,
+            num_workers=args.dataset['num_workers'],
+            pin_memory=True,
+            drop_last=False
+        )
+        #print('Loader done! Length:',len(test_loader))
+        tscale = args.dataset['temporal_scale']
+        duration = args.dataset['max_duration']
+        with torch.no_grad():
+            for idx, input_data in test_loader:
+                sbj_name = test_loader.dataset.subject_list[idx[0]]
+                #print('sbj_name', sbj_name)
+                offset = min(test_loader.dataset.data['indices'][idx[0]])
 
-            start_scores = start[0].detach().cpu().numpy()
-            end_scores = end[0].detach().cpu().numpy()
-            clr_confidence = (confidence_map[0][1]).detach().cpu().numpy()
-            reg_confidence = (confidence_map[0][0]).detach().cpu().numpy()
+                sbj_name_ext = sbj_name + f'_{offset}'
 
-            max_start = max(start_scores)
-            max_end = max(end_scores)
+                input_data = input_data.cuda()
+                # 1,2,D,T   1,1,T   1,1,T
+                confidence_map, start, end, loss_G = model(input_data)
 
-            start_bins = np.zeros(len(start_scores))
-            start_bins[0] = 1
-            for idx in range(1, tscale - 1):
-                if start_scores[idx] > start_scores[idx + 1] and start_scores[idx] > start_scores[idx - 1]:
-                    start_bins[idx] = 1
-                elif start_scores[idx] > (0.5 * max_start):
-                    start_bins[idx] = 1
-            end_bins = np.zeros(len(end_scores))
-            end_bins[-1] = 1
-            for idx in range(1, tscale - 1):
-                if end_scores[idx] > end_scores[idx + 1] and end_scores[idx] > end_scores[idx - 1]:
-                    end_bins[idx] = 1
-                elif end_scores[idx] > (0.5 * max_end):
-                    end_bins[idx] = 1
+                start_scores = start[0].detach().cpu().numpy()
+                end_scores = end[0].detach().cpu().numpy()
+                clr_confidence = (confidence_map[0][1]).detach().cpu().numpy()
+                reg_confidence = (confidence_map[0][0]).detach().cpu().numpy()
 
-            # generate proposal
-            ################### THUMOS dataset########
-            new_props = []
-            for idx in range(duration):
-                for jdx in range(tscale):
-                    start_index = jdx
-                    end_index = start_index + idx + 1
-                    if end_index < tscale and start_bins[start_index] == 1 and end_bins[end_index] == 1:
-                        xmin = start_index * args.dataset['gap_videoframes'] + offset
-                        #
-                        xmax = end_index * args.dataset['gap_videoframes'] + offset
-                        xmin_score = start_scores[start_index]
-                        xmax_score = end_scores[end_index]
-                        clr_score = clr_confidence[idx, jdx]
-                        reg_score = reg_confidence[idx, jdx]
-                        score = xmin_score * xmax_score * clr_score * reg_score
+                max_start = max(start_scores)
+                max_end = max(end_scores)
 
-                        new_props.append([xmin, xmax, xmin_score, xmax_score, clr_score, reg_score, score])
+                start_bins = np.zeros(len(start_scores))
+                start_bins[0] = 1
+                for idx in range(1, tscale - 1):
+                    if start_scores[idx] > start_scores[idx + 1] and start_scores[idx] > start_scores[idx - 1]:
+                        start_bins[idx] = 1
+                    elif start_scores[idx] > (0.5 * max_start):
+                        start_bins[idx] = 1
+                end_bins = np.zeros(len(end_scores))
+                end_bins[-1] = 1
+                for idx in range(1, tscale - 1):
+                    if end_scores[idx] > end_scores[idx + 1] and end_scores[idx] > end_scores[idx - 1]:
+                        end_bins[idx] = 1
+                    elif end_scores[idx] > (0.5 * max_end):
+                        end_bins[idx] = 1
 
-            new_props = np.stack(new_props)
+                # generate proposal
+                ################### THUMOS dataset########
+                new_props = []
+                for idx in range(duration):
+                    for jdx in range(tscale):
+                        start_index = jdx
+                        end_index = start_index + idx + 1
+                        if end_index < tscale and start_bins[start_index] == 1 and end_bins[end_index] == 1:
+                            xmin = start_index * args.dataset['gap_videoframes'] + offset
+                            #
+                            xmax = end_index * args.dataset['gap_videoframes'] + offset
+                            xmin_score = start_scores[start_index]
+                            xmax_score = end_scores[end_index]
+                            clr_score = clr_confidence[idx, jdx]
+                            reg_score = reg_confidence[idx, jdx]
+                            score = xmin_score * xmax_score * clr_score * reg_score
 
-            col_name = ['xmin', 'xmax', 'xmin_score', 'xmax_score', 'clr_score', 'reg_score', 'score']
-            new_df = pd.DataFrame(new_props, columns=col_name)
-            if not os.path.exists(args.output['output_path']):
-                os.makedirs(args.output['output_path'])
-            new_df.to_csv(os.path.join(args.output['output_path'], video_name + ".csv"), index=False)
-        print("end")
+                            new_props.append([xmin, xmax, xmin_score, xmax_score, clr_score, reg_score, score])
+
+                new_props = np.stack(new_props)
+
+                col_name = ['xmin', 'xmax', 'xmin_score', 'xmax_score', 'clr_score', 'reg_score', 'score']
+                new_df = pd.DataFrame(new_props, columns=col_name)
+                if not os.path.exists(args.output['output_path']):
+                    os.makedirs(args.output['output_path'])
+                new_df.to_csv(os.path.join(args.output['output_path'], sbj_name_ext + ".csv"), index=False)
+            #print("end")
+
+
+
+
+
+        #! For now I only run it for 1 subject
+        #break
+
+    
+    else: #! The old way
+
+        test_loader = DataLoader(
+            VideoDataset(
+                temporal_scale=args.dataset['temporal_scale'],
+                mode=args.mode,
+                subset="val",
+                feature_path=args.dataset['feature_path'],
+                video_info_path=args.dataset['video_info_path'],
+                feat_dim=args.model['feat_dim'],
+                gap_videoframes=args.dataset['gap_videoframes'],
+                max_duration=args.dataset['max_duration'],
+                min_duration=args.dataset['max_duration'],
+                feature_name=args.dataset['feature_name'],
+                overwrite=args.dataset['overwrite']
+            ),
+            batch_size=1,
+            shuffle=False,
+            num_workers=args.dataset['num_workers'],
+            pin_memory=True,
+            drop_last=False
+        )
+        tscale = args.dataset['temporal_scale']
+        duration = args.dataset['max_duration']
+        with torch.no_grad():
+            for idx, input_data in test_loader:
+                video_name = test_loader.dataset.video_list[idx[0]]
+                offset = min(test_loader.dataset.data['indices'][idx[0]])
+
+                video_name = video_name + '_{}'.format(math.floor(offset / 250))
+
+                input_data = input_data.cuda()
+                # 1,2,D,T   1,1,T   1,1,T
+                confidence_map, start, end, loss_G = model(input_data)
+
+                start_scores = start[0].detach().cpu().numpy()
+                end_scores = end[0].detach().cpu().numpy()
+                clr_confidence = (confidence_map[0][1]).detach().cpu().numpy()
+                reg_confidence = (confidence_map[0][0]).detach().cpu().numpy()
+
+                max_start = max(start_scores)
+                max_end = max(end_scores)
+
+                start_bins = np.zeros(len(start_scores))
+                start_bins[0] = 1
+                for idx in range(1, tscale - 1):
+                    if start_scores[idx] > start_scores[idx + 1] and start_scores[idx] > start_scores[idx - 1]:
+                        start_bins[idx] = 1
+                    elif start_scores[idx] > (0.5 * max_start):
+                        start_bins[idx] = 1
+                end_bins = np.zeros(len(end_scores))
+                end_bins[-1] = 1
+                for idx in range(1, tscale - 1):
+                    if end_scores[idx] > end_scores[idx + 1] and end_scores[idx] > end_scores[idx - 1]:
+                        end_bins[idx] = 1
+                    elif end_scores[idx] > (0.5 * max_end):
+                        end_bins[idx] = 1
+
+                # generate proposal
+                ################### THUMOS dataset########
+                new_props = []
+                for idx in range(duration):
+                    for jdx in range(tscale):
+                        start_index = jdx
+                        end_index = start_index + idx + 1
+                        if end_index < tscale and start_bins[start_index] == 1 and end_bins[end_index] == 1:
+                            xmin = start_index * args.dataset['gap_videoframes'] + offset
+                            #
+                            xmax = end_index * args.dataset['gap_videoframes'] + offset
+                            xmin_score = start_scores[start_index]
+                            xmax_score = end_scores[end_index]
+                            clr_score = clr_confidence[idx, jdx]
+                            reg_score = reg_confidence[idx, jdx]
+                            score = xmin_score * xmax_score * clr_score * reg_score
+
+                            new_props.append([xmin, xmax, xmin_score, xmax_score, clr_score, reg_score, score])
+
+                new_props = np.stack(new_props)
+
+                col_name = ['xmin', 'xmax', 'xmin_score', 'xmax_score', 'clr_score', 'reg_score', 'score']
+                new_df = pd.DataFrame(new_props, columns=col_name)
+                if not os.path.exists(args.output['output_path']):
+                    os.makedirs(args.output['output_path'])
+                new_df.to_csv(os.path.join(args.output['output_path'], video_name + ".csv"), index=False)
+            print("end")
 
 def eval_proposal(args):
     args.eval['NMS_threshold'] = args.eval['NMS_threshold_p']

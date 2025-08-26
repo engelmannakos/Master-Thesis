@@ -7,11 +7,12 @@ from Evaluation.eval_detection import ANETdetection
 def run_evaluation(ground_truth_file, proposal_file, dataset_name='',
                    max_avg_nr_proposal=100,
                    tiou_thre=np.linspace(0.5, 1.0, 11), subset='test'):
+    #print('Checkpoint 7.1')
     anet_proposal = ANETproposal(ground_truth_file, proposal_file,
                                  dataset_name=dataset_name,
                                  tiou_thresholds=tiou_thre, max_avg_nr_proposals=max_avg_nr_proposal,
                                  subset=subset, verbose=True, check_status=False)
-
+    #print('Checkpoint 7.2')
     anet_proposal.evaluate()
 
     recall = anet_proposal.recall
@@ -44,23 +45,64 @@ def plot_metric(args, average_nr_proposals, average_recall, recall, tiou_thresho
 
     plt.ylabel('Average Recall', fontsize=fn_size)
     plt.xlabel('Average Number of Proposals per Video', fontsize=fn_size)
-    plt.grid(b=True, which="both")
+    plt.grid(visible=True, which="both")
     plt.ylim([0, 1.0])
     plt.setp(plt.axes().get_xticklabels(), fontsize=fn_size)
     plt.setp(plt.axes().get_yticklabels(), fontsize=fn_size)
     plt.savefig(args.eval["save_fig_path"])
 
 
+def plot_metric2(args, average_nr_proposals, average_recall, recall, tiou_thresholds=np.linspace(0.5, 1.0, 11)):
+    fn_size = 14
+    plt.figure(figsize=(12, 8))
+    ax = plt.gca()  # Get the current axes
+
+    colors = ['k', 'r', 'yellow', 'b', 'c', 'm', 'b', 'pink', 'lawngreen', 'indigo']
+    area_under_curve = np.trapz(recall, average_nr_proposals, axis=1)  # Vectorized computation
+
+    for idx, tiou in enumerate(tiou_thresholds[::2]):
+        ax.plot(average_nr_proposals, recall[2 * idx, :], color=colors[idx + 1],
+                label=f"tiou=[{tiou}], area={area_under_curve[2 * idx]:.2f}",
+                linewidth=4, linestyle='-')
+
+    ax.plot(average_nr_proposals, average_recall, color=colors[0],
+            label=f"tiou=0.5:0.1:1.0, area={np.trapz(average_recall, average_nr_proposals):.2f}",
+            linewidth=4, linestyle='-')
+
+    # Fix legend handling
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend([handles[-1]] + handles[:-1], [labels[-1]] + labels[:-1], loc='best')
+
+    ax.set_ylabel('Average Recall', fontsize=fn_size)
+    ax.set_xlabel('Average Number of Proposals per Video', fontsize=fn_size)
+    ax.grid(True, which="both")
+    ax.set_ylim([0, 1.0])
+    
+    ax.tick_params(axis='both', which='major', labelsize=fn_size)  # Modern way to set tick label size
+    
+    plt.savefig(args.output['output_path']+'figure.jpg')
+    plt.close()
+
+
+
+
+
+
 def evaluation_proposal(args):
+    #print('Checkpoint 7 - evalutional_proposal')
+    subset = 'test'
+    if args.dataset['dataset_name'] != 'thumos14':
+        subset = 'Validation'
     uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid = run_evaluation(
-        args.eval['thumos_gt'],
-        args.output["output_path"] + '/generated_result.json',
+        args.eval['thumos_gt']+f'/loso_sbj_{args.sbj}.json',
+        args.output["output_path"] + '/generated_result_proposal.json',
         args.dataset['dataset_name'],
         max_avg_nr_proposal=1000,
         tiou_thre=np.linspace(0.5, 1.0, 11),
-        subset='test')
+        subset=subset)
+    #print('Checkpoint 8')
 
-    plot_metric(args, uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid)
+    plot_metric2(args, uniform_average_nr_proposals_valid, uniform_average_recall_valid, uniform_recall_valid)
     print("AR@1 is \t", np.mean(uniform_recall_valid[:, 0]))
     print("AR@5 is \t", np.mean(uniform_recall_valid[:, 4]))
     print("AR@10 is \t", np.mean(uniform_recall_valid[:, 9]))
@@ -72,9 +114,9 @@ def evaluation_proposal(args):
 
 
 def evalution_detection(args):
-    ground_truth_filename = "./Evaluation/thumos_gt.json"
+    ground_truth_filename = args.eval['thumos_gt']+f'/loso_sbj_{args.sbj}.json' #"./Evaluation/thumos_gt.json"
     tious = [0.3, 0.4, 0.5, 0.6, 0.7]
-    anet_detection = ANETdetection(ground_truth_filename, args.output["output_path"] + '/generated_result.json',
+    anet_detection = ANETdetection(ground_truth_filename, args.output["output_path"] + '/generated_result_detection.json',
                                    dataset_name=args.dataset['dataset_name'],
                                    tiou_thresholds=tious,
                                    subset='test', verbose=True, check_status=False)

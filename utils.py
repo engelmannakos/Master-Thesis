@@ -15,6 +15,15 @@ def ioa_with_anchors(anchor_min, anchor_max, box_min, box_max):
     return scores
 
 
+"""
+anchor_len = 5000
+inter_min = 0
+inter_max = 5000
+len = 5000
+
+
+"""
+
 def iou_with_anchors(anchor_min, anchor_max, box_min, box_max):
     anchor_len = anchor_max - anchor_min
     inter_min = np.maximum(anchor_min, box_min)

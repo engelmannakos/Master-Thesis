@@ -92,8 +92,18 @@ class Criterion(nn.Module):
         coef_0 = 0.5 * ratio / (ratio - 1)
         coef_1 = 0.5 * ratio
         epsilon = 0.000001
+        #print('pmask', pmask)
+        #print('nmask', nmask)
+        
+        #print('num_positive', num_positive)
+        #print('ratio', ratio)
+        #print('pred_score', pred_score)
+        #print('coef_1', coef_1)
+        #print('coef_0', coef_0)
         loss_pos = coef_1 * torch.log(pred_score + epsilon) * pmask
         loss_neg = coef_0 * torch.log(1.0 - pred_score + epsilon) * nmask
+        #print('torch.sum(loss_pos + loss_neg):',torch.sum(loss_pos + loss_neg))
+        #print('num_entries:',num_entries)
         loss = -1 * torch.sum(loss_pos + loss_neg) / num_entries
         return loss
 
@@ -105,12 +115,32 @@ class Criterion(nn.Module):
         conf_cls = conf[:, 1].contiguous()
 
         gt_iou_map = gt_iou_map * pro_mask
-
+        """
+        print(conf_com)
+        print('---------------------')
+        print(conf_cls)
+        print('---------------------')
+        print(p_start)
+        print('---------------------')
+        print(p_end)
+        print('---------------------')
+        print(conns)
+        print('---------------------')
+        print(gt_iou_map)
+        print('---------------------')
+        print(gt_start)
+        print('---------------------')
+        print(gt_end)
+        print('---------------------')
+        """
         loss_b = self.binary_logistic_regression(p_start, p_end, gt_start, gt_end)
+        #print('loss_b', loss_b)
         loss_com = self.proposal_mse_loss(conf_com, gt_iou_map, pro_mask)
+        #print('loss_com', loss_com)
         loss_cls = self.proposal_blr_loss(conf_cls, gt_iou_map, pro_mask)
+        #print('loss_cls', loss_cls)
         loss_norm = self.sparsity_loss(conns)
-
-        loss = loss_b + 100 * loss_com + loss_cls + 10 * loss_norm
+        #print('loss_norm', loss_norm)
+        loss = loss_b + 100 * loss_com + loss_cls + 10 * loss_norm #! It was nan, because the were nans in the data
 
         return loss, loss_b, loss_com, loss_cls, loss_norm

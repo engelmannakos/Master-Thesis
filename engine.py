@@ -18,8 +18,15 @@ def train_epoch(data_loader, model, criterion, optimizer, epoch):
         label_start = label_start.cuda()
         label_end = label_end.cuda()
         if torch.sum((label_confidence > 0.7).float()) == 0:
+            print('No confidence')
             continue
         # N,2,D,T   N,T    N,T
+        #print('-----//////////-----')
+        #print(input_data.shape)
+        #print('-----//////////-----')
+        #print(torch.isnan(input_data).any())
+        #for param in model.parameters():
+        #    print(torch.isnan(param).any())
         conf, start, end, loss_conns = model(input_data)
         loss_list = criterion(conf, start, end, loss_conns, label_confidence, label_start, label_end)
         optimizer.zero_grad()
@@ -57,11 +64,11 @@ def test(args, data_loader, model, criterion, epoch):
         label_start = label_start.cuda()
         label_end = label_end.cuda()
         # N, 2, D, T   N, T    N, T
-        if torch.sum((label_confidence > 0.7).float()) == 0:
+        if torch.sum((label_confidence > 0.7).float()) == 0: #needs to be same as in proposal_blr_loss to avoid nan in Criterion, 
+            print('No confidence')
             continue
         confidence_map, start, end, loss_G = model(input_data)
         loss_list = criterion(confidence_map, start, end, loss_G, label_confidence, label_start, label_end)
-
     epoch_b_loss += loss_list[1].cpu().detach().numpy()
     epoch_prop_com_loss += loss_list[2].cpu().detach().numpy()
     epoch_prop_cls_loss += loss_list[3].cpu().detach().numpy()
@@ -78,7 +85,11 @@ def test(args, data_loader, model, criterion, epoch):
     state = {'epoch': epoch + 1,
              'state_dict': model.state_dict()}
 
-    torch.save(state, os.path.join(args["checkpoint_path"], "PRSA_checkpoint_%d.pth.tar" % (epoch)))
-    if epoch_loss < model.module.best_loss:
-        model.module.best_loss = epoch_loss
-        torch.save(state, os.path.join(args["checkpoint_path"], "PRSA_checkpoint_%d.pth.tar" % (epoch)))
+    if args.dataset['dataset_name'] != 'thumos14':
+
+        torch.save(state, os.path.join(args.output["checkpoint_path"], f"PRSA_checkpoint_{epoch}_{args.dataset['temporal_scale']}.pth.tar"))
+        if epoch_loss < model.module.best_loss:
+            model.module.best_loss = epoch_loss
+            torch.save(state, os.path.join(args.output["checkpoint_path"], f"PRSA_checkpoint_best_{args.dataset['temporal_scale']}.pth.tar"))
+    else:
+        raise KeyError('Check if modification is needed here.')
