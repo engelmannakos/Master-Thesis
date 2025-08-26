@@ -1,5 +1,4 @@
-python3 main.py \
---device 1 \
+python3 ../main.py \
 --mode train \
 --rgb \
 --flow \

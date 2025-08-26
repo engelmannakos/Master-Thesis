@@ -6,6 +6,7 @@ import numpy as np
 import math
 import random
 from .transformer import build_transformer
+import json
 
 class MATR(nn.Module):
     def __init__(self, args):
@@ -13,7 +14,10 @@ class MATR(nn.Module):
         self.args = args
         self.training = args.training
         self.n_feature = args.feat_dim
-        n_class = args.num_of_class
+        self.n_class = args.num_of_class
+
+        self.video_anno_path = args.video_anno.format(args.dataset, args.subject)
+
         n_embedding_dim = args.hidden_dim
         self.n_embedding_dim = n_embedding_dim
         n_enc_layer = args.enc_layers
@@ -23,27 +27,37 @@ class MATR(nn.Module):
         n_seglen = args.num_frame
         self.n_seglen = n_seglen
         self.num_queries = args.num_queries
-        self.rgb = args.rgb
-        self.flow = args.flow
+        if args.dataset == 'thumos14':
+            self.rgb = args.rgb
+            self.flow = args.flow
+        else:
+            self.rgb = False #args.rgb #! needed for thumos14 run
+            self.flow = False #args.flow #! needed for thumos14 run
+
         self.dropout=args.dropout
         
         self.use_flag = args.use_flag
         self.flag_threshold = args.flag_threshold
         self.max_memory_len = args.max_memory_len
-        
+    
+
         # FC layers for multi-modals
         if self.rgb and self.flow:
             self.feature_reduction_rgb = nn.Linear(self.n_feature//2, n_embedding_dim//2)
             self.feature_reduction_flow = nn.Linear(self.n_feature//2, n_embedding_dim//2)
-        else:
+        elif self.rgb or self.flow:
             self.feature_reduction_rgb = nn.Linear(self.n_feature, n_embedding_dim)
             self.feature_reduction_flow = nn.Linear(self.n_feature, n_embedding_dim)
-        
+        else:
+            self.feature_reduction_raw = nn.Linear(self.n_feature, n_embedding_dim)
+
+        self._getNumClass()
+
         # separte attention
         self.segment_encoder, self.segment_decoder = build_transformer(args)
         self.memory_encoder, self.memory_decoder = build_transformer(args)
 
-        self.classification_head = nn.Sequential(nn.Linear(n_embedding_dim*2,n_embedding_dim), nn.ReLU(), nn.Linear(n_embedding_dim,n_class)) 
+        self.classification_head = nn.Sequential(nn.Linear(n_embedding_dim*2,n_embedding_dim), nn.ReLU(), nn.Linear(n_embedding_dim,self.n_class)) 
         self.stcls_head = nn.Sequential(nn.Linear(n_embedding_dim,n_embedding_dim), nn.ReLU(), nn.Linear(n_embedding_dim,self.max_memory_len+2))
         self.streg_head = nn.Sequential(nn.Linear(n_embedding_dim,n_embedding_dim), nn.Tanh(), nn.Linear(n_embedding_dim,self.max_memory_len+2))
         self.edcls_head = nn.Sequential(nn.Linear(n_embedding_dim,n_embedding_dim), nn.ReLU(), nn.Linear(n_embedding_dim,1))
@@ -63,13 +77,19 @@ class MATR(nn.Module):
         # self.compressed_ratio = 1
         
         self.pos_token = nn.Parameter(torch.randn(self.num_queries, 1, n_embedding_dim))
-        self.segment_pos_encoding = PositionalEncoding_segment(n_embedding_dim, args.dropout, maxlen=400)
-        self.memory_pos_encoding = PositionalEncoding_memory_flag(n_embedding_dim, args.dropout, maxlen=400)       
+        self.segment_pos_encoding = PositionalEncoding_segment(n_embedding_dim, args.dropout, maxlen=10000) # 1024, 0.3, 400
+        self.memory_pos_encoding = PositionalEncoding_memory_flag(n_embedding_dim, args.dropout, maxlen=10000)       
             
         self.video_name = None
         self.memory_queue = None
         self.memory_queue_index = None
     
+    def _getNumClass(self):
+        with open(self.video_anno_path, 'r') as fid:
+            json_data = json.load(fid)
+        self.num_of_class = len(json_data['label_dict'])
+        print('Number of classes again:', self.num_of_class)
+
     def forward(self, inputs, device):
         # inputs - batch x seq_len x featsize
         self.device = device
@@ -160,6 +180,9 @@ class MATR(nn.Module):
         return out
             
     def input_projection(self, inputs):
+        #print(inputs[:,:,:self.n_feature])
+        #print(type(inputs[:,:,:self.n_feature]))
+        #raise ValueError('eeeeeeeeeeee')
         if self.rgb and self.flow:
             base_x_rgb = self.feature_reduction_rgb(inputs[:,:,:self.n_feature//2])
             base_x_flow = self.feature_reduction_flow(inputs[:,:,self.n_feature//2:])
@@ -167,9 +190,14 @@ class MATR(nn.Module):
         elif self.rgb:
             base_x_rgb = self.feature_reduction_rgb(inputs[:,:,:self.n_feature])
             base_x = base_x_rgb
-        else:
+        elif self.flow:
             base_x_flow = self.feature_reduction_flow(inputs[:,:,:self.n_feature])
             base_x = base_x_flow
+        else:
+            inputs = inputs.float()
+
+            base_x_raw = self.feature_reduction_raw(inputs[:,:,:self.n_feature])
+            base_x = base_x_raw
         return base_x.permute([1,0,2])
     
     def check_nan(self, values):
@@ -261,7 +289,9 @@ class PositionalEncoding_segment(nn.Module):
             'position_ids',
             torch.arange(maxlen).expand((1, -1))
             )
-    def forward(self, token_embedding: torch.Tensor): 
+    def forward(self, token_embedding: torch.Tensor):
+        #print('Token embedding:', token_embedding.size(0))
+        #print(self.pos_embedding[:token_embedding.size(0), :].flip(dims=(0,)))
         return self.pos_embedding[:token_embedding.size(0), :].flip(dims=(0,))
     
 class PositionalEncoding_memory_flag(nn.Module):
@@ -284,11 +314,24 @@ class PositionalEncoding_memory_flag(nn.Module):
             torch.arange(maxlen))
     def forward(self, between_memory_index, inside_memory_index, memory_sampler): 
         if memory_sampler == 'all':
+            print(between_memory_index.long())
             between_pos_embedding = self.pos_embedding[between_memory_index.long()].permute([1,0,2])
             inside_pos_embedding = self.pos_embedding[inside_memory_index.long()].permute([1,0,2])     
         elif 'gap' in str(memory_sampler):
             gap_size = int(memory_sampler[-1])
-            between_pos_embedding = self.pos_embedding[between_memory_index[:,::gap_size].long()].permute([1,0,2])
-            inside_pos_embedding = self.pos_embedding[inside_memory_index[:,::gap_size].long()].permute([1,0,2])
+            bmi = between_memory_index[:,::gap_size].long()
+            imi = inside_memory_index[:,::gap_size].long()
+            #print(bmi.shape)
+            #print(bmi)
+            #print(imi.shape)
+            #print(imi)
+            #print(self.pos_embedding.shape)
+            #print(self.pos_embedding)
+            bpe = self.pos_embedding[bmi]
+            between_pos_embedding = bpe.permute([1,0,2])
+            #print(between_pos_embedding.shape)
+            ipe = self.pos_embedding[imi]
+            inside_pos_embedding = ipe.permute([1,0,2])
+            #print(inside_pos_embedding.shape)
                 
         return torch.cat((between_pos_embedding, inside_pos_embedding), dim=2)

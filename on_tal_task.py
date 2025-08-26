@@ -18,7 +18,7 @@ import util.logger as loggers
 import torchvision.transforms as transforms
 from models import build_model
 from collections import defaultdict
-from dataset import THUMOS14Dataset
+from dataset import THUMOS14Dataset, InertialDataset
 from criterion import build_criterion
 import cv2
 from eval import evaluation_detection
@@ -33,9 +33,22 @@ def on_tal(args):
         eval(args)
         
 def train(args):
-    save_path = args.save_path
-    train_dataset = THUMOS14Dataset(args, subset='train')
-    test_dataset = THUMOS14Dataset(args, subset='test')
+    print(args.dataset)
+    print(args.subject)
+    save_path = f'../checkpoint/{args.dataset}/sbj_{args.subject}' #args.save_path
+    print(save_path)
+    if not os.path.isdir(save_path):
+        print('Creating directory: {}'.format(save_path))
+        os.makedirs(save_path)
+        print(os.path.isdir(save_path))
+
+    if args.dataset == 'thumos14':
+        train_dataset = THUMOS14Dataset(args, subset='train') # in the dataset subset became train from Training
+        test_dataset = THUMOS14Dataset(args, subset='test') # in the dataset subset became test from Validation
+    else:
+        train_dataset = InertialDataset(args, subset='train') # in the dataset subset became train from Training
+        test_dataset = InertialDataset(args, subset='test') # in the dataset subset became test from Validation
+
     
     train_loader = torch.utils.data.DataLoader(train_dataset, 
                                             batch_size=args.batch, shuffle= False,
@@ -117,7 +130,8 @@ def train(args):
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict(),
             }
-            result_path = save_path + '/best_epoch%d.pth' % epoch
+
+            result_path = save_path + '/best_epoch.pth'
             
             # remove previous epoch model
             pth_files = [file for file in os.listdir(save_path) if '.pth' in file]
@@ -132,8 +146,13 @@ def train(args):
 def eval(args):
     args.training = False
     save_path = args.save_path
-    test_dataset = THUMOS14Dataset(args, subset='test')
-                
+
+    if args.dataset == 'thumos14':
+        test_dataset = THUMOS14Dataset(args, subset='test')
+    else:
+        test_dataset = InertialDataset(args, subset='test')
+
+
     test_loader = torch.utils.data.DataLoader(test_dataset,
                                             batch_size=args.batch, shuffle=False,
                                             num_workers=args.num_workers, pin_memory=True,drop_last=False) 
@@ -299,7 +318,7 @@ def train_one_epoch(args, train_dataset, train_loader, model, criterion, optimiz
         mAP = evaluation_detection(args, proposal_json_path, subset='train', 
                                     tiou_thresholds=tiou_thresholds, verbose=True)        
     else:        
-        mAP = np.array([0,0,0,0,0], dtype=np.float)
+        mAP = np.array([0,0,0,0,0], dtype=float)
 
     metric_logger.synchronize_between_processes()  
 
@@ -392,7 +411,7 @@ def test_one_epoch(args, test_dataset, test_loader, model, criterion, optimizer,
         # import pdb;pdb.set_trace()
         ###`
     else:
-        mAP = np.array([0,0,0,0,0], dtype=np.float)
+        mAP = np.array([0,0,0,0,0], dtype=float)
     
     metric_logger.synchronize_between_processes()  
     

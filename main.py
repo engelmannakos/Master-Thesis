@@ -20,7 +20,7 @@ def main(args):
         exp_name = '%s_[%s]_[%s]_ON_TAL_<%s>' % ('test', args.task, args.dataset, time_str)
     else:
         exp_name = '[%s]_[%s]_ON_TAL_<%s>' % (args.task, args.dataset, time_str)
-    save_path = './result/%s' % exp_name
+    save_path = '../result/%s' % exp_name
     proj_name = 'ON_TAL-' + args.task
     print_log(save_path, exp_name)
     _args = copy.deepcopy(args)
@@ -51,8 +51,10 @@ def main(args):
         on_tal(args)
         
 if __name__ == "__main__": 
+
     args = make_parser()    
     
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device
     

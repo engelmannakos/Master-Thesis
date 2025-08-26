@@ -182,7 +182,7 @@ def online_nms(args, pred_path, dataset):
             result_dict[video_name] =[]
             continue
         
-        v_pred_proposals_valid = [line for line in v_pred_proposals if np.float(line[1])>= np.float(line[3])]
+        v_pred_proposals_valid = [line for line in v_pred_proposals if float(line[1])>= float(line[3])]
 
         if len(v_pred_proposals_valid) == 0:
             result_dict[video_name] =[]

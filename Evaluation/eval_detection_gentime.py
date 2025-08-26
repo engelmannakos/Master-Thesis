@@ -4,9 +4,9 @@ import json
 import numpy as np
 import pandas as pd
 
-from utils import get_blocked_videos
-from utils import interpolated_prec_rec
-from utils import segment_iou
+from .utils import get_blocked_videos
+from .utils import interpolated_prec_rec
+from .utils import segment_iou
 
 class ANETdetection(object):
 
@@ -157,7 +157,9 @@ class ANETdetection(object):
                 tiou_thresholds=self.tiou_thresholds)
         
         sum_tdiff = np.sum(tdiff, axis=1)
-        total_tp = np.sum(cnt_tp, axis=1)
+        total_tp = np.sum(cnt_tp, axis=1) #! if the model didn't predict any TP prediction, it will divide by 0s
+        #print('sum_tdiff:', sum_tdiff)
+        #print('total_tp:', total_tp)
         final_tdiff = sum_tdiff/total_tp
         
         return ap, final_tdiff

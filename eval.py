@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
-sys.path.append('./Evaluation')
-from eval_detection_gentime import ANETdetection
+#sys.path.append('./Evaluation')
+from Evaluation.eval_detection_gentime import ANETdetection
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -26,6 +26,9 @@ def evaluation_detection(args, output_file, subset, tiou_thresholds, verbose=Tru
         gt_file_name = args.video_anno
     elif args.dataset == "muses":
         gt_file_name = args.video_anno_muses
+    else:
+        gt_file_name = args.video_anno.format(args.dataset, args.subject)
+
     mAP, AP, tdiff = run_evaluation_detection(
         gt_file_name,
         output_file,
