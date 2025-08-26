@@ -223,6 +223,7 @@ class CompletenessLoss(torch.nn.Module):
     def forward(self, pred, labels, sample_split, sample_group_size):
         pred_dim = pred.size()[1]
         pred = pred.view(-1, sample_group_size, pred_dim)
+        #print(f'[-1, {sample_group_size}, {pred_dim}]')
         labels = labels.view(-1, sample_group_size)
 
         pos_group_size = sample_split
@@ -250,10 +251,25 @@ class ClassWiseRegressionLoss(torch.nn.Module):
         self.smooth_l1_loss = nn.SmoothL1Loss()
 
     def forward(self, pred, labels, targets):
+        #print('/////targets/////')
+        #print(targets)
         indexer = labels.data - 1
-        prep = pred[:, indexer, :]
-        class_pred = torch.cat((torch.diag(prep[:, :,  0]).view(-1, 1),
-                                torch.diag(prep[:, :, 1]).view(-1, 1)),
-                               dim=1)
-        loss = self.smooth_l1_loss(class_pred.view(-1), targets.view(-1)) * 2
+        #print('/////indexer/////')
+        #print(indexer)
+        #print('/////pred/////')
+        #print(pred)
+
+        #! With these modifications, the model can handle if activity_prop_type only has 1 FG and 1 BG
+        #! which is the case when we're trying to use BGs.
+        if len(pred.size()) == 2: #? new
+            print('///// New stuff /////')
+            prep = pred[indexer, :] #? new
+            loss = self.smooth_l1_loss(prep.view(-1), targets.view(-1)) * 2 #? new
+
+        else: #? new
+            prep = pred[:, indexer, :]
+            class_pred = torch.cat((torch.diag(prep[:, :,  0]).view(-1, 1),
+                                    torch.diag(prep[:, :, 1]).view(-1, 1)),
+                                dim=1)
+            loss = self.smooth_l1_loss(class_pred.view(-1), targets.view(-1)) * 2
         return loss

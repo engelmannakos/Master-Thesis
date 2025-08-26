@@ -49,6 +49,8 @@ class ANETdetection(object):
             print('\tFixed threshold for tiou score: {}'.format(self.tiou_thresholds))
 
     def _import_ground_truth(self, ground_truth_filename):
+        raise ValueError('This is ANETdetection')
+
         """Reads ground truth file, checks if it is well formatted, and returns
            the ground truth instances and the activity classes.
 
@@ -226,10 +228,16 @@ def compute_average_precision_detection(ground_truth, prediction, tiou_threshold
 
     for tidx in range(len(tiou_thresholds)):
         # Computing prec-rec
-        this_tp = np.cumsum(tp[tidx,:]).astype(np.float)
-        this_fp = np.cumsum(fp[tidx,:]).astype(np.float)
+        #print(np.cumsum(tp[tidx,:]).astype(np.float))
+        this_tp = np.cumsum(tp[tidx,:]).astype(float)
+        this_fp = np.cumsum(fp[tidx,:]).astype(float)
+        #print('tp[tidx,:]')
+        #print(tp[tidx,:])
+        #print('np.cumsum(tp[tidx,:])')
+        #print(np.cumsum(tp[tidx,:]))
         rec = this_tp / npos
         prec = this_tp / (this_tp + this_fp)
+        #print(f'{rec} = {this_tp} / {npos}')
         ap[tidx] = interpolated_prec_rec(prec, rec)
 
     return ap

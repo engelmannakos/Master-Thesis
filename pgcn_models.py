@@ -70,6 +70,7 @@ class PGCN(torch.nn.Module):
         self.child_dis_num = graph_configs['dis_num']
         self.dropout = model_configs['dropout']
         self.test_mode = test_mode
+        
         self.act_feat_dim = model_configs['act_feat_dim']
         self.comp_feat_dim = model_configs['comp_feat_dim']
 
@@ -203,6 +204,9 @@ class PGCN(torch.nn.Module):
         reg_target = reg_target[0: -1: self.adj_num]
         reg_indexer = (type_data == 0).nonzero().squeeze()
         raw_regress_fc = self.regressor_fc(comp_fts).view(-1, self.completeness_fc.out_features, 2).contiguous()
+
+        #print('/////reg_indexer/////')
+        #print(reg_indexer)
 
         return raw_act_fc[act_indexer, :], target[act_indexer], type_data[act_indexer], \
                raw_comp_fc, comp_target, \

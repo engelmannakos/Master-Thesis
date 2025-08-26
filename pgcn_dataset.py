@@ -15,6 +15,8 @@ import pickle
 import torch
 import math
 
+import pandas as pd
+import pickle
 
 class PGCNInstance:
 
@@ -95,8 +97,7 @@ class PGCNVideoRecord:
         ]
 
         self.proposals = list(filter(lambda x: x.start_frame < frame_count, self.proposals))
-
-    @property
+    @property #! MODIFICATION???
     def id(self):
         return self._data[0].strip("\n").split("/")[-1]
     @property
@@ -236,9 +237,11 @@ class PGCNDataSet(data.Dataset):
 
     def _parse_prop_file(self, stats=None):
         prop_info = load_proposal_file(self.prop_file)
+        print('len(prop_info):',len(prop_info))
+        #pd.DataFrame(prop_info).to_csv('prop_info.csv') #! Delete later
 
         self.video_list = [PGCNVideoRecord(p) for p in prop_info]
-
+        print('len(video_list):',len(self.video_list))
         if self.exclude_empty:
             self.video_list = list(filter(lambda x: len(x.gt) > 0, self.video_list))
 
@@ -261,6 +264,9 @@ class PGCNDataSet(data.Dataset):
 
             self.incomp_pool.extend([(v.id, prop) for prop in incomp])
             self.bg_pool.extend([(v.id, prop) for prop in bg])
+            #print('fg_pool:', len(self.fg_pool))
+            #print('incomp_pool:', len(self.incomp_pool))
+            #print('bg_pool:', len(self.bg_pool))
 
         if stats is None:
             self._compute_regresssion_stats()
@@ -423,7 +429,7 @@ class PGCNDataSet(data.Dataset):
         elif prop[1] == 1:
             label = prop[0][1].label  # incomplete
         elif prop[1] == 2:
-            label = 0  # background
+            label = 0  # background label is 0
         else:
             raise ValueError()
 
@@ -499,6 +505,8 @@ class PGCNDataSet(data.Dataset):
             out_prop_type.append(prop_type)
 
         out_prop_labels = torch.from_numpy(np.array(out_prop_labels))
+        #print('/////out_prop_labels/////')
+        #print(out_prop_labels)
         out_prop_reg_targets = torch.from_numpy(np.array(out_prop_reg_targets, dtype=np.float32))
         out_prop_type = torch.from_numpy(np.array(out_prop_type))
 
@@ -507,6 +515,7 @@ class PGCNDataSet(data.Dataset):
         vid = vid_full_name.split('/')[-1]
 
         act_prop_ft, comp_prop_ft = I3D_Pooling(out_prop_ind, vid, self.ft_path, video.num_frames)
+        #raise ValueError('TESTING AREA, WATCH YOUR STEPS!')
 
         return (act_prop_ft, comp_prop_ft), out_prop_type, out_prop_labels, out_prop_reg_targets
 
@@ -515,7 +524,7 @@ class PGCNDataSet(data.Dataset):
         for video in self.video_list:
             vid = video.id
             gt_list.extend([[vid, x.label - 1, x.start_frame / video.num_frames,
-                             x.end_frame / video.num_frames] for x in video.gt])
+                             x.end_frame / video.num_frames] for x in video.gt]) #! it's 'x.label - 1', bc we'll get rid of bg/null class label(0)
         return gt_list
 
     def __getitem__(self, index):
@@ -526,4 +535,8 @@ class PGCNDataSet(data.Dataset):
             return self.get_training_data(real_index)
 
     def __len__(self):
+        #print('len was asked')
+        #print('len(self.video_list)', len(self.video_list))
+        #print('self.epoch_multiplier', self.epoch_multiplier)
+        #print('len(self.video_list) * self.epoch_multiplier',len(self.video_list) * self.epoch_multiplier)
         return len(self.video_list) * self.epoch_multiplier

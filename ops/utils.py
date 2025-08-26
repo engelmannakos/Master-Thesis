@@ -2,7 +2,8 @@ import torch
 import numpy as np
 import time
 import logging
-from ruamel import yaml
+#from ruamel import yaml
+import yaml
 
 def get_logger(args):
     logger = logging.getLogger(__name__)
@@ -25,21 +26,22 @@ def get_logger(args):
     return logger
 
 def get_configs(dataset):
-    data = yaml.load(open('data/dataset_cfg.yaml', 'r'), Loader=yaml.RoundTripLoader)
+    data = yaml.load(open('data/dataset_cfg.yaml', 'r'), Loader=yaml.FullLoader)
     return data[dataset]
 
 def get_and_save_args(parser):
     args = parser.parse_args()
     dataset = args.dataset
 
-    default_config = yaml.load(open('./data/dataset_cfg.yaml', 'r'), Loader=yaml.RoundTripLoader)[dataset]
+    default_config = yaml.load(open('./data/dataset_cfg.yaml', 'r'), Loader=yaml.FullLoader)[dataset]
     current_config = vars(args)
     for k, v in current_config.items():
         if k in default_config:
             if (v != default_config[k]) and (v is not None):
                 print(f"Updating:  {k}: {default_config[k]} (default) ----> {v}")
                 default_config[k] = v
-    yaml.dump(default_config, open('./current_configs.yaml', 'w'), indent=4, Dumper=yaml.RoundTripDumper)
+    yaml.dump(default_config, open('./current_configs.yaml', 'w'), indent=4, Dumper=yaml.Dumper)
+
     return default_config
 
 

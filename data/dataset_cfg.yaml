@@ -1,8 +1,372 @@
+rwhar:
+  dataset_configs:
+
+    train_ft_path: data/rwhar/tf_files
+    test_ft_path: data/rwhar/tf_files
+
+    train_dict_path: data/rwhar/dict_files #train_prop_dict.pkl
+    val_dict_path: data/rwhar/dict_files #val_prop_dict.pkl
+    test_dict_path: data/rwhar/dict_files #test_prop_dict.pkl
+    train_prop_file: data/rwhar/prop_files
+    test_prop_file: data/rwhar/prop_files
+
+    gt_annotations: data/rwhar/annotations
+
+    training_epoch_multiplier: 30
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.3 #0.5 #0.7
+    bg_iou_thresh: 0
+    incomplete_iou_thresh: 0.1 #0.2 #0.3
+    bg_coverage_thresh: 0 #0.01 #0.02
+    incomplete_overlap_thresh: 0.01 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.3 #0.5 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 8 #! See at the end of an annotations file
+    act_feat_dim: 0 #! Num of sensors
+    comp_feat_dim: 0 #! 3*act_feat_dim
+
+    raw_act_feat_dim: 21
+    raw_comp_feat_dim: 63
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+
+    dropout: 0.8
+    gcn_dropout: 0.7
+
+
+  evaluation:
+    top_k: 20000
+    nms_threshold: 0
+
+
+
+
+
+
+
+
+
+
+# DONE
+hangtime:
+  dataset_configs:
+
+    train_ft_path: data/hangtime/tf_files
+    test_ft_path: data/hangtime/tf_files
+
+    train_dict_path: data/hangtime/dict_files #train_prop_dict.pkl
+    val_dict_path: data/hangtime/dict_files #val_prop_dict.pkl
+    test_dict_path: data/hangtime/dict_files #test_prop_dict.pkl
+    train_prop_file: data/hangtime/prop_files
+    test_prop_file: data/hangtime/prop_files
+
+    gt_annotations: data/hangtime/annotations
+
+    training_epoch_multiplier: 30
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.9 #0.5 #0.7
+    bg_iou_thresh: 0.01
+    incomplete_iou_thresh: 0.6 #0.2 #0.3
+    bg_coverage_thresh: 0.0015 #0.01 #0.02
+    incomplete_overlap_thresh: 0 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.7 #0.5 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 5
+    act_feat_dim: 0
+    comp_feat_dim: 0 #! 3*act_feat_dim?
+
+    raw_act_feat_dim: 3
+    raw_comp_feat_dim: 9
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+
+    dropout: 0.8
+    gcn_dropout: 0.7
+
+
+  evaluation:
+    top_k: 200000
+    nms_threshold: 0.2
+
+opportunity:
+  dataset_configs:
+
+    train_ft_path: data/opportunity/tf_files
+    test_ft_path: data/opportunity/tf_files
+
+    train_dict_path: data/opportunity/dict_files #train_prop_dict.pkl
+    val_dict_path: data/opportunity/dict_files #val_prop_dict.pkl
+    test_dict_path: data/opportunity/dict_files #test_prop_dict.pkl
+    train_prop_file: data/opportunity/prop_files
+    test_prop_file: data/opportunity/prop_files
+
+    gt_annotations: data/opportunity/annotations
+
+    training_epoch_multiplier: 30
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.9 #0.5 #0.7
+    bg_iou_thresh: 0.01
+    incomplete_iou_thresh: 0.7 #0.2 #0.3
+    bg_coverage_thresh: 0.0027 #0.01 #0.02
+    incomplete_overlap_thresh: 0.01 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.7 #0.3 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 17 #! See at the end of an annotations file
+    act_feat_dim: 0
+    comp_feat_dim: 0
+
+    raw_act_feat_dim: 113 #! Num of sensors
+    raw_comp_feat_dim: 339 #! 3*act_feat_dim
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+
+    dropout: 0.8
+    gcn_dropout: 0.2
+
+
+  evaluation:
+    top_k: 2000000
+    nms_threshold: 0.2
+
+sbhar:
+  dataset_configs:
+
+    train_ft_path: data/sbhar/tf_files
+    test_ft_path: data/sbhar/tf_files
+
+    train_dict_path: data/sbhar/dict_files #train_prop_dict.pkl
+    val_dict_path: data/sbhar/dict_files #val_prop_dict.pkl
+    test_dict_path: data/sbhar/dict_files #test_prop_dict.pkl
+    train_prop_file: data/sbhar/prop_files
+    test_prop_file: data/sbhar/prop_files
+
+    gt_annotations: data/sbhar/annotations
+
+    training_epoch_multiplier: 30 #50
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.3 #0.5 #0.7
+    bg_iou_thresh: 0.01
+    incomplete_iou_thresh: 0.2 #0.2 #0.3
+    bg_coverage_thresh: 0.02 #0.01 #0.02
+    incomplete_overlap_thresh: 0.7 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.3 #0.5 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 12 #! See at the end of an annotations file
+    act_feat_dim: 0 #! Num of sensors
+    comp_feat_dim: 0 #! 3*act_feat_dim
+
+    raw_act_feat_dim: 3
+    raw_comp_feat_dim: 9
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+    
+    dropout: 0.8
+    gcn_dropout: 0.7
+
+
+  evaluation:
+    top_k: 2000
+    nms_threshold: 0.2
+
+wetlab:
+  dataset_configs:
+
+    train_ft_path: data/wetlab/tf_files
+    test_ft_path: data/wetlab/tf_files
+
+    train_dict_path: data/wetlab/dict_files #train_prop_dict.pkl
+    val_dict_path: data/wetlab/dict_files #val_prop_dict.pkl
+    test_dict_path: data/wetlab/dict_files #test_prop_dict.pkl
+    train_prop_file: data/wetlab/prop_files
+    test_prop_file: data/wetlab/prop_files
+
+    gt_annotations: data/wetlab/annotations
+
+    training_epoch_multiplier: 30
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.9 #0.5 #0.7
+    bg_iou_thresh: 0.01
+    incomplete_iou_thresh: 0.3 #0.2 #0.3
+    bg_coverage_thresh: 0.03 #0.01 #0.02
+    incomplete_overlap_thresh: 0.7 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.3 #0.5 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 8 #! See at the end of an annotations file
+    act_feat_dim: 0 #! Num of sensors
+    comp_feat_dim: 0 #! 3*act_feat_dim
+
+    raw_act_feat_dim: 3
+    raw_comp_feat_dim: 9
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+
+    dropout: 0.8
+    gcn_dropout: 0.7
+
+
+  evaluation:
+    top_k: 200000
+    nms_threshold: 0.3
+
+wear:
+  dataset_configs:
+
+    train_ft_path: data/wear/tf_files
+    test_ft_path: data/wear/tf_files
+
+    train_dict_path: data/wear/dict_files #train_prop_dict.pkl
+    val_dict_path: data/wear/dict_files #val_prop_dict.pkl
+    test_dict_path: data/wear/dict_files #test_prop_dict.pkl
+    train_prop_file: data/wear/prop_files
+    test_prop_file: data/wear/prop_files
+
+    gt_annotations: data/wear/annotations
+
+    training_epoch_multiplier: 30
+    testing_epoch_multiplier: 1
+    fg_iou_thresh: 0.3 #0.5 #0.7
+    bg_iou_thresh: 0.01
+    incomplete_iou_thresh: 0.2 #0.2 #0.3
+    bg_coverage_thresh: 0.05 #0.01 #0.02
+    incomplete_overlap_thresh: 0.7 #0.01
+    prop_per_video: 8
+    fg_ratio: 1
+    bg_ratio: 1
+    incomplete_ratio: 6 #2 #6
+    iou_threshold: 0.3 #0.5 #0.7
+    dis_threshold: 0
+    starting_ratio: 0.5
+    ending_ratio: 0.5
+
+
+  graph_configs:
+    adj_num: 21
+    child_num: 4
+    iou_num: 8
+    dis_num: 2
+
+  model_configs:
+    num_class: 18 #! See at the end of an annotations file
+    act_feat_dim: 0 #! Num of sensors
+    comp_feat_dim: 0 #! 3*act_feat_dim
+
+    raw_act_feat_dim: 12
+    raw_comp_feat_dim: 36
+    lstm_act_feat_dim: 0
+    lstm_comp_feat_dim: 0
+    attention_act_feat_dim: 0
+    attention_comp_feat_dim: 0
+
+    dropout: 0.8
+    gcn_dropout: 0.7
+
+
+  evaluation:
+    top_k: 200000
+    nms_threshold: 0.4
+
+
+
+
+
+
+
+
+
+
+
+
+
 thumos14:
   dataset_configs:
 
-    train_ft_path: /home/datasets/THUMOS14/I3D_video_level/Rgb_Train_All
-    test_ft_path: /home/datasets/THUMOS14/I3D_video_level/Rgb_Test_All
+    train_ft_path: data/Rgb_TrainPJ2_All/
+    test_ft_path: data/Rgb_TestPJ2_All/
 
     train_dict_path: data/thumos14_train_prop_dict.pkl
     val_dict_path: data/thumos14_val_prop_dict.pkl

@@ -3,31 +3,36 @@ import glob
 import os
 import fnmatch
 
-
-def load_proposal_file(filename):
+def load_proposal_file(filename): #! aka bsn_train_proposal_list.txt
     lines = list(open(filename))
     from itertools import groupby
     groups = groupby(lines, lambda x: x.startswith('#'))
 
     info_list = [[x.strip() for x in list(g)] for k, g in groups if not k]
+    print('len(info_list aka bsn_train_proposal_list.txt):',len(info_list))
     
     def parse_group(info):
         offset = 0
-        vid = info[offset]
+        vid = info[offset] #! = /home/datasets/THUMOS14/OF_RGB_Val/video_validation_0000154
         offset += 1
 
-        n_frame = int(float(info[1]) * float(info[2]))
-        n_gt = int(info[3])
+        n_frame = int(float(info[1]) * float(info[2])) #! = 1572
+        n_gt = int(info[3]) #! = 3
         offset = 4
 
-        gt_boxes = [x.split() for x in info[offset:offset+n_gt]]
+        gt_boxes = [x.split() for x in info[offset:offset+n_gt]] #! = [[4,160,346], [...], [...]]
         offset += n_gt
         #if n_gt == 0:
          #   offset += 1
-        n_pr = int(info[offset])
+        n_pr = int(info[offset]) #! = 825
         offset += 1
-        pr_boxes = [x.split() for x in info[offset:offset+n_pr]]
+        pr_boxes = [x.split() for x in info[offset:offset+n_pr]] #! = [[0,0,0,3,38], [...], ..., [...]]
 
+        #! proposal = [label, best_iou, overlap_self, startf, endf]
+        #! best_iou and overlap_self countable only if the labels are matching!
+        #! best_iou = intersection of gt and pr (e.g. 34 frames) divided by the union of gt and pr (e.g. 344 frames)
+        #! overlap_self = intersection of gt and pr (e.g. 34 frames) divided by the pr (e.g. 190 frames)
+        #! label is always the correct label if iou › 0, otherwise 0
         return vid, n_frame, gt_boxes, pr_boxes
 
     return [parse_group(l) for l in info_list]

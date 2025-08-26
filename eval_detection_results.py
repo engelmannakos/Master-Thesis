@@ -20,7 +20,7 @@ from ops.utils import get_configs
 # options
 parser = argparse.ArgumentParser(
     description="Evaluate detection performance metrics")
-parser.add_argument('dataset', type=str, choices=['activitynet1.2', 'thumos14'])
+parser.add_argument('dataset', type=str, choices=['activitynet1.2', 'thumos14', 'hangtime', 'sbhar', 'opportunity', 'rwhar', 'wear', 'wetlab'])
 parser.add_argument('detection_pickles', type=str, nargs='+')
 parser.add_argument('--nms_threshold', type=float, default=None)
 parser.add_argument('--no_regression', default=False, action="store_true")
@@ -29,12 +29,19 @@ parser.add_argument('--top_k', type=int, default=None)
 parser.add_argument('--cls_scores', type=str, default=None)
 parser.add_argument('--cls_top_k', type=int, default=1)
 parser.add_argument('--score_weights', type=float, default=None, nargs='+')
+parser.add_argument('--sbj', type=int, default=0)
+parser.add_argument('--feat_ext', type=str, default='raw')
+
 
 args = parser.parse_args()
 
 configs = get_configs(args.dataset)
 dataset_configs = configs['dataset_configs']
 model_configs = configs["model_configs"]
+
+model_configs['act_feat_dim'] = model_configs[f'{args.feat_ext}_act_feat_dim'] # now we get the proper dimensions
+model_configs['comp_feat_dim'] = model_configs[f'{args.feat_ext}_comp_feat_dim']
+
 graph_configs = configs["graph_configs"]
 num_class = model_configs['num_class']
 
@@ -74,9 +81,19 @@ print('Merge detection scores from {} sources...'.format(len(score_pickle_list))
 detection_scores = {k: merge_scores(k) for k in score_pickle_list[0]}
 print('Done.')
 
+if args.dataset != 'thumos14' and args.dataset != 'activitynet1.3':
+    dataset_configs['test_prop_file'] += f'/{args.feat_ext}/sbj_{args.sbj}/test_proposal_list.txt'
+    dataset_configs['train_dict_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/train_prop_dict.pkl'
+    dataset_configs['test_dict_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/test_prop_dict.pkl'
+    dataset_configs['test_ft_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/test'
+    dataset_configs['train_ft_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/train'
+
+
 dataset = PGCNDataSet(dataset_configs, graph_configs,
                     prop_file=dataset_configs['test_prop_file'],
+                    #prop_dict_path=dataset_configs['test_dict_path'],
                     prop_dict_path=dataset_configs['train_dict_path'],
+                    #ft_path=dataset_configs['test_ft_path'],
                     ft_path=dataset_configs['train_ft_path'],
                     test_mode=True)
 
@@ -128,6 +145,11 @@ for k, v in detection_scores.items():
     gen_detection_results(k, v)
 print('Done.')
 
+#print('------')
+#print(dataset_detections[0])
+#print(dataset_detections[2])
+#print('------')
+
 # perform NMS
 print("Performing nms...")
 for cls in range(num_class):
@@ -138,10 +160,11 @@ print("NMS Done.")
 
 
 def perform_regression(detections):
-    t0 = detections[:, 0]
-    t1 = detections[:, 1]
-    center = (t0 + t1) / 2
-    duration = (t1 - t0)
+    t0 = detections[:, 0] # 3
+    t1 = detections[:, 1] # 5
+
+    center = (t0 + t1) / 2 # 4
+    duration = (t1 - t0) # 2
 
     new_center = center + duration * detections[:, 3]
     new_duration = duration * np.exp(detections[:, 4])
@@ -172,13 +195,15 @@ def ravel_detections(detection_db, cls):
     return df
 
 plain_detections = [ravel_detections(dataset_detections, cls) for cls in range(num_class)]
-
+#print('-----------------------------')
+#print(plain_detections)
+#print('-----------------------------')
 
 # get gt
 all_gt = pd.DataFrame(dataset.get_all_gt(), columns=["video-id", "cls","t-start", "t-end"])
 gt_by_cls = []
 for cls in range(num_class):
-    gt_by_cls.append(all_gt[all_gt.cls == cls].reset_index(drop=True).drop('cls', 1))
+    gt_by_cls.append(all_gt[all_gt.cls == cls].reset_index(drop=True).drop('cls', axis=1))
 
 pickle.dump(gt_by_cls, open('gt_dump.pc', 'wb'), pickle.HIGHEST_PROTOCOL)
 pickle.dump(plain_detections, open('pred_dump.pc', 'wb'), pickle.HIGHEST_PROTOCOL)
@@ -189,13 +214,24 @@ if args.dataset == 'activitynet1.2':
 elif args.dataset == 'thumos14':
     iou_range = np.arange(0.1, 1.0, 0.1)
 else:
-    raise ValueError("unknown dataset {}".format(args.dataset))
+    iou_range = np.arange(0.1, 1.0, 0.1)
 
 ap_values = np.empty((num_class, len(iou_range)))
 
 
 def eval_ap(iou, iou_idx, cls, gt, predition):
+    #print('Checkpoint 1')
+    #print('cls')
+    #print(cls)
+    #print('gt')
+    #print(gt)
+    #print('prediction')
+    #print(predition)
+    #print('iou')
+    #print(iou)
     ap = compute_average_precision_detection(gt, predition, iou)
+    #print('ap',ap)
+    #print('halo 2')
     sys.stdout.flush()
     return cls, iou_idx, ap
 
@@ -211,7 +247,12 @@ for iou_idx, min_overlap in enumerate(iou_range):
         jobs.append(pool.apply_async(eval_ap, args=([min_overlap], iou_idx, cls, gt_by_cls[cls], plain_detections[cls],),callback=callback))
 pool.close()
 pool.join()
-print("Evaluation done.\n\n")
+#print("Evaluation done.\n\n")
+
+#print('====')
+#print(all_gt)
+#print('====')
+
 map_iou = ap_values.mean(axis=0)
 display_title = "Detection Performance on {}".format(args.dataset)
 

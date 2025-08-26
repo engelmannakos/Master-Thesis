@@ -1,6 +1,6 @@
 import argparse
 parser = argparse.ArgumentParser(description="PyTorch code to train PGCN")
-parser.add_argument('dataset', type=str, choices=['activitynet1.3', 'thumos14'])
+parser.add_argument('dataset', type=str, choices=['activitynet1.3', 'thumos14', 'hangtime', 'sbhar', 'opportunity', 'rwhar', 'wear', 'wetlab'])
 
 # ========================= Model Configs ==========================
 parser.add_argument('--dropout', '--do', default=0.8, type=float,
@@ -15,7 +15,7 @@ parser.add_argument('-b', '--batch-size', default=32, type=int,
                     metavar='N', help='mini-batch size (default: 32)')
 parser.add_argument('-i', '--iter-size', default=1, type=int,
                     metavar='N', help='number of iterations before on update')
-parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate')
 parser.add_argument('--lr_steps', default=[15, 30, 45], type=float, nargs="+",
                     metavar='LRSteps', help='epochs to decay learning rate by 10')
@@ -44,6 +44,8 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--snapshot_pref', type=str, default="")
+parser.add_argument('--sbj', type=str, default=0)
+parser.add_argument('--feat_ext', type=str, default='raw')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--gpus', nargs='+', type=int, default=None)

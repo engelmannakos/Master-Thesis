@@ -13,7 +13,7 @@ import random
 
 parser = argparse.ArgumentParser(
     description="PGCN Testing Tool")
-parser.add_argument('dataset', type=str, choices=['activitynet1.2', 'thumos14'])
+parser.add_argument('dataset', type=str, choices=['activitynet1.2', 'thumos14', 'hangtime', 'sbhar', 'opportunity', 'rwhar', 'wear', 'wetlab'])
 parser.add_argument('weights', type=str)
 parser.add_argument('save_scores', type=str)
 
@@ -23,6 +23,9 @@ parser.add_argument('--max_num', type=int, default=-1)
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--gpus', nargs='+', type=int, default=None)
+parser.add_argument('--sbj', type=int, default=0)
+parser.add_argument('--feat_ext', type=str, default='raw')
+
 
 SEED = 777
 random.seed(SEED)
@@ -41,10 +44,13 @@ dataset_configs = configs['dataset_configs']
 model_configs = configs["model_configs"]
 graph_configs = configs["graph_configs"]
 
+model_configs['act_feat_dim'] = model_configs[f'{args.feat_ext}_act_feat_dim'] # now we get the proper dimensions
+model_configs['comp_feat_dim'] = model_configs[f'{args.feat_ext}_comp_feat_dim']
+
 adj_num = graph_configs['adj_num']
 num_class = model_configs['num_class']
 
-gpu_list = args.gpus if args.gpus is not None else range(8)
+gpu_list = args.gpus if args.gpus is not None else range(2) #! switched to 2
 
 
 
@@ -139,6 +145,11 @@ def runner_func(dataset, state_dict, stats, gpu_id, index_queue, result_queue, i
         vid_full_name = video_id
         vid = vid_full_name.split('/')[-1]
 
+        if args.dataset != 'thumos14' and args.dataset != 'activitynet1.3':
+            dataset_configs['test_ft_path'] = f'data/{args.dataset}/tf_files/{args.feat_ext}/sbj_{args.sbj}/test'
+            #print(dataset_configs['test_ft_path'])
+            #print('///////////////')
+            
         act_all_fts, comp_all_fts = I3D_Pooling(prop_ticks, vid, dataset_configs['test_ft_path'], n_frames)
 
         for prop_idx, prop in enumerate(prop_ticks):
@@ -181,6 +192,11 @@ if __name__ == '__main__':
     print("model epoch {} loss: {}".format(checkpoint['epoch'], checkpoint['best_loss']))
     base_dict = {'.'.join(k.split('.')[1:]): v for k, v in list(checkpoint['state_dict'].items())}
     stats = checkpoint['reg_stats'].numpy()
+
+    if args.dataset != 'thumos14' and args.dataset != 'activitynet1.3':
+        dataset_configs['test_prop_file'] += f'/{args.feat_ext}/sbj_{args.sbj}/test_proposal_list.txt'
+        dataset_configs['test_dict_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/test_prop_dict.pkl'
+        dataset_configs['test_ft_path'] += f'/{args.feat_ext}/sbj_{args.sbj}/test'
 
     dataset = PGCNDataSet(dataset_configs, graph_configs,
                           prop_file=dataset_configs['test_prop_file'],
